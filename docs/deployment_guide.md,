@@ -1,0 +1,45 @@
+# ML Model Deployment & API Documentation
+
+## 1. Architecture Overview
+This project containerizes a trained Random Forest Classifier (`model.joblib`) inside a **Docker** container and serves real-time predictions over HTTP using **FastAPI** and **Uvicorn**.
+
+    [Client / App] --POST /predict--> [Docker Container: Uvicorn + FastAPI] --> [model.joblib]
+
+## 2. Containerizing & Running Locally with Docker
+
+### A. Build the Docker Image
+    docker build -t iris-ml-api:v1 .
+
+During build, Docker installs dependencies from `requirements.txt`, executes `src/train_model.py` to generate `model.joblib`, and exposes port `8000`.
+
+### B. Run the Container
+    docker run -d -p 8000:8000 --name iris-predictor iris-ml-api:v1
+
+## 3. Cloud Deployment Guide (Google Cloud Run / AWS)
+
+### Option A: Google Cloud Run
+1. Tag and push the image to Google Artifact Registry:
+
+    gcloud builds submit --tag gcr.io/PROJECT_ID/iris-ml-api
+
+2. Deploy as a managed serverless container:
+
+    gcloud run deploy iris-ml-api --image gcr.io/PROJECT_ID/iris-ml-api --platform managed --port 8000 --allow-unauthenticated
+
+### Option B: AWS Elastic Container Registry (ECR) + App Runner
+1. Push the Docker image to an Amazon ECR repository.
+2. Create an **AWS App Runner** service pointing to the ECR image URI on port `8000` for automatic HTTPS scaling.
+
+## 4. API Endpoints Reference
+
+### 1. Health Check (`GET /health`)
+Verifies the service is live and the model artifact is loaded.
+* **Sample Response**: `{"status": "healthy", "model_loaded": true}`
+
+### 2. Predict (`POST /predict`)
+Accepts four positive float measurements and returns the predicted Iris species and probability confidence.
+* **Sample `curl` Request**:
+
+    curl -X POST "http://localhost:8000/predict" -H "Content-Type: application/json" -d '{"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2}'
+
+* **Sample Response**: `{"predicted_class": "setosa", "class_index": 0, "confidence": 0.99}`
